@@ -1,0 +1,6 @@
+<h1>Lista rezerwacji</h1>
+<ul>
+{% for reservation in reservations %}
+    <li>Fryzjer: {{ reservation.hairdresser.name }}, Usługa: {{ reservation.service.name }}, Data: {{ reservation.date_time }}</li>
+{% endfor %}
+</ul>

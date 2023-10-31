@@ -1,0 +1,6 @@
+<h1>Lista fryzjerów</h1>
+<ul>
+{% for hairdresser in hairdressers %}
+    <li>{{ hairdresser.name }} - Specjalizacja: {{ hairdresser.get_specialization_display }}</li>
+{% endfor %}
+</ul>
