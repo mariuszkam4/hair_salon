@@ -11,4 +11,4 @@ def service_list(request):
 
 def reservation_list(request):
     reservations = Reservation.objects.all()
-    return render(request, 'reservations_list.html', {'reservations': reservations})
+    return render(request, 'reservation_list.html', {'reservations': reservations})
