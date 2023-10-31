@@ -1,4 +1,5 @@
 import os
+from dotenv import load_dotenv
 """
 Django settings for hair_salon project.
 
@@ -27,7 +28,6 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 DEBUG = False
 
 ALLOWED_HOSTS = []
-
 
 # Application definition
 
@@ -74,6 +74,8 @@ WSGI_APPLICATION = 'hair_salon.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
+
+load_dotenv()
 
 DATABASES = {
     'default': {
