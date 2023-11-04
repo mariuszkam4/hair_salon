@@ -35,5 +35,9 @@ class Service(models.Model):
 
 class Reservation(models.Model):
     hairdresser = models.ForeignKey(Hairdresser, on_delete=models.CASCADE)
-    service = models.ForeignKey(Service, on_delete=models.CASCADE)
-    date_time = models.DateField()
+    service = models.ForeignKey(Service, on_delete=models.SET_NULL, null=True)
+    start_time = models.DateField()
+    end_time = models.DateTimeField()
+
+    def __str__(self):
+        return f"{self.hairdresser.name} rezerwacja na {self.start_time}"
