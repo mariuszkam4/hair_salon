@@ -14,6 +14,7 @@ class HairdresserAdminForm(forms.ModelForm):
     class Meta:
         model = Hairdresser
         fields = ('__all__')
+        exclude = ('specialization',)
 
     def __init__(self, *args, **kwargs):
         super(HairdresserAdminForm, self).__init__(*args, **kwargs)
