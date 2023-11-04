@@ -1,6 +1,8 @@
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as gl
+from django.utils import timezone
+from datetime import datetime, time
 
 class Hairdresser(models.Model):
     SPECIALIZATIONS = [
@@ -45,5 +47,20 @@ class Reservation(models.Model):
         return f"{self.hairdresser.name} rezerwacja na {self.start_time}"
     
     def clean(self):
-        if self.end_time <= self.start_time:
+        # Konwersja start_time na datetime
+        start_datetime = datetime.combine(self.start_time, time.min)
+        start_datetime = timezone.make_aware(start_datetime)
+        
+        # Sprawdzenie, czy end_time jest instancją datetime
+        if not isinstance(self.end_time, datetime):
+            raise ValidationError(gl('Czas zakończenia musi być dokładną datą i czasem.'))
+        
+        if self.end_time <= start_datetime:
             raise ValidationError(gl('Zakończenie rezerwacji nie może mieć miejsca przed terminem jej rozpoczęcia.'))
+    
+    def save(self, *args, **kwargs):
+        if self.service and self.service.duration and not self.end_time:
+            start_datetime = datetime.combine(self.start_time, time.min)
+            start_datetime = timezone.make_aware(start_datetime)
+            self.end_time = start_datetime + self.service.duration 
+        super().save(*args, **kwargs)
