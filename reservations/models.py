@@ -1,4 +1,6 @@
 from django.db import models
+from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as gl
 
 class Hairdresser(models.Model):
     SPECIALIZATIONS = [
@@ -41,3 +43,7 @@ class Reservation(models.Model):
 
     def __str__(self):
         return f"{self.hairdresser.name} rezerwacja na {self.start_time}"
+    
+    def clean(self):
+        if self.end_time <= self.start_time:
+            raise ValidationError(gl('Zakończenie rezerwacji nie może mieć miejsca przed terminem jej rozpoczęcia.'))
