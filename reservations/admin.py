@@ -1,32 +1,10 @@
+from typing import Any
 from django.contrib import admin
-from django import forms
-from django.contrib.admin.widgets import FilteredSelectMultiple
+from django.utils.html import format_html
+from django.utils.safestring import mark_safe
+import datetime
 from .models import Hairdresser, Service, Reservation, SpecializationChoice
-
-class HairdresserAdminForm(forms.ModelForm):
-    specializations = forms.ModelMultipleChoiceField(
-        queryset=SpecializationChoice.objects.all(),
-        widget=FilteredSelectMultiple('Specializations', is_stacked=False),
-        required=False,
-    )
-
-    class Meta:
-        model = Hairdresser
-        fields = '__all__'
-
-    def __init__(self, *args, **kwargs):
-        super(HairdresserAdminForm, self).__init__(*args, **kwargs)
-        if self.instance and self.instance.pk:
-            self.fields['specializations'].initial = self.instance.specializations.all()
-    
-    def save(self, commit=True):
-        hairdresser = super(HairdresserAdminForm, self).save(commit=False)
-        if commit:
-            hairdresser.save()
-        if hairdresser.pk:
-            hairdresser.specializations.set(self.cleaned_data['specializations'])
-            self.save_m2m()
-        return hairdresser
+from .forms import ServiceAdminForm, HairdresserAdminForm
 
 class HairdresserAdmin(admin.ModelAdmin):
     form = HairdresserAdminForm
@@ -44,13 +22,34 @@ class HairdresserAdmin(admin.ModelAdmin):
     list_specializations.short_description = 'Specializations'
 
 class ServiceAdmin(admin.ModelAdmin):
+    form = ServiceAdminForm
     list_display = ('name', 'cost', 'duration', 'list_specializations')
+    list_filter = ('specializations',)
+    search_fields = ('name',)
+    ordering = ('name',)
 
     def list_specializations(self, obj):
         return ", ".join([spec.get_specialization_display() for spec in obj.specializations.all()])
-    list_specializations.short_description = 'Specializations'
+    list_specializations.short_description = "Specializations"
+
+class ReservationAdmin(admin.ModelAdmin):
+    list_display = ('hairdresser', 'day_column', 'time_column', 'service')
+
+    def day_column(self, obj):
+        return obj.start_time.strftime('%d-%m-%Y')
+    day_column.admin_order_field = 'start_time'
+    day_column.short_description = 'Dzień'
+
+    def time_column(self, obj):
+        return format_html('{} - {}',
+                           obj.start_time.strftime('%H:%M'),
+                           obj.end_time.strftime('%H:%M'))
+    time_column.short_description = 'Godzina'
+
+    def get_queryset(self, request): 
+        return super().get_queryset(request).filter(start_time__gte=datetime.date.today())
 
 admin.site.register(Hairdresser, HairdresserAdmin)
 admin.site.register(Service, ServiceAdmin)
-admin.site.register(Reservation)
+admin.site.register(Reservation, ReservationAdmin)
 admin.site.register(SpecializationChoice)

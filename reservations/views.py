@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.contrib import messages
 from .models import Hairdresser, Service, Reservation
-from .forms import ReservationsForm
+from .forms import ReservationForm
 
 def hairdresser_list(request):
     haidressers = Hairdresser.objects.all()
@@ -17,7 +17,7 @@ def reservation_list(request):
 
 def schedule_reservation(request):
     if request.method == "POST":
-        form = ReservationsForm(request.POST)
+        form = ReservationForm(request.POST)
         if form.is_valid():
             selected_hairdresser = form.cleaned_data['hairdresser']
             selected_date = form.cleaned_data['date']
@@ -32,6 +32,6 @@ def schedule_reservation(request):
                 messages.error(request, "Podany termin jest już zajęty, proszę wybrać inny termin.")
             
         else:
-            form = ReservationsForm()
+            form = ReservationForm()
         
         return render(request, 'schedule_reservation.html', {'form': form})
