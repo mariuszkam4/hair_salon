@@ -2,7 +2,6 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as gl
 from django.utils import timezone
-from datetime import datetime, time
 
 class Hairdresser(models.Model):
     SPECIALIZATIONS = [
@@ -58,21 +57,24 @@ class Reservation(models.Model):
         return f"{self.hairdresser.name} rezerwacja na {self.start_time}"
 
     def clean(self):
-        if timezone.is_aware(self.start_time):
-            start_datetime = self.start_time
-        else:
+        if self.start_time and not timezone.is_aware(self.start_time):
             start_datetime = timezone.make_aware(self.start_time)
-        
+        else:
+            start_datetime = self.start_time
+
+        if self.end_time is None:
+            raise ValidationError(gl('Czas zakończenia musi być ustawiony.'))
+
         if not timezone.is_aware(self.end_time):
-            raise ValidationError(gl('Czas zakończenia musi być świadomą strefy czasowej datą i czasem.'))
+            raise ValidationError(gl('Czas zakończenia musi być wartością zgodną z obowiązującą strefą czasową.'))
 
         if self.end_time <= start_datetime:
             raise ValidationError(gl('Zakończenie rezerwacji nie może mieć miejsca przed terminem jej rozpoczęcia.'))
-        
+
         service_specializations = self.service.get_specializations() if self.service else []
         if not any(self.hairdresser.has_specialization(spec) for spec in service_specializations):
             raise ValidationError(gl("Wybrany fryzjer nie ma specjalizacji do realizacji wskazanej usługi."))
-    
+ 
     def save(self, *args, **kwargs):
         if self.service and self.service.duration and not self.end_time:
            self.end_time = self.start_time + self.service.duration

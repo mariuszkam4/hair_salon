@@ -1,5 +1,8 @@
 from django.test import TestCase
-from .models import Hairdresser, SpecializationChoice
+from django.utils import timezone
+from .models import Hairdresser, SpecializationChoice, Service, Reservation
+from datetime import timedelta
+from django.core.exceptions import ValidationError
 
 class HairdresserSpecializationTestCase(TestCase):
     def setUp(self):
@@ -39,3 +42,64 @@ class HairdresserSpecializationTestCase(TestCase):
         self.assertEqual(self.hairdresser3.specialization.count(), 2)
         self.assertTrue(self.hairdresser3.specialization.filter(specialization='F').exists())
         self.assertTrue(self.hairdresser3.specialization.filter(specialization='S').exists())
+
+class ReservationModelTests(TestCase):
+
+    def setUp(self):
+        # Tworzenie instancji fryzjera
+        self.hairdresser = Hairdresser.objects.create(name="Testowy fryzjer")
+
+        # Tworzenie instancji usługi
+        duration = timedelta(hours=1) 
+
+        self.service = Service.objects.create(name="Test service", duration=duration, cost = 100)
+
+        # Czas początku rezerwacji do użycia w testach
+        self.start_time = timezone.now()
+
+    # Test prawidłowego ustawienia czasu 'end_time'
+    def test_reservation_end_time_set_correctly(self):
+        # Utworzenie rezerwacji
+        reservation = Reservation(
+            hairdresser = self.hairdresser,
+            service = self.service,
+            start_time = self.start_time
+        )
+        # Przypadek w którym 'duration' jest typu DurationField
+        expected_end_time = self.start_time + self.service.duration
+
+        # Przypadek w którym 'duratoin' jest obiektem typu IntegerField
+        # expected_end_time = self.start_time + timedelta(minutes=self.service.duration)
+
+        reservation.save()
+
+        self.assertEqual(reservation.end_time, expected_end_time)
+    
+    # Test walidacji czasu
+    def test_reservation_with_invalid_end_time_raises_error(self):
+        # Ustawienie nieprawidłowego `end_time` przed `start_time`
+        invalid_end_time = self.start_time - timedelta(hours=1)
+        
+        with self.assertRaises(ValidationError):
+            reservation = Reservation(
+                hairdresser=self.hairdresser,
+                service=self.service,
+                start_time=self.start_time,
+                end_time=invalid_end_time
+            )
+            reservation.full_clean()  # Powinno wywołać `clean` i podnieść `ValidationError`
+    
+    # Test specjalizacji fryzjera
+    def test_reservation_with_invalid_hairdresser_raises_error(self):
+        # Załóżmy, że `has_specialization` jest metodą w `Hairdresser`
+        # i że `get_specializations` jest metodą w `Service`
+        # Ustalamy, że fryzjer nie ma wymaganej specjalizacji
+        self.hairdresser.specialization.clear()         
+        with self.assertRaises(ValidationError):
+            reservation = Reservation(
+                hairdresser=self.hairdresser,
+                service=self.service,
+                start_time=self.start_time
+            )
+            reservation.full_clean()  # Walidacja powinna zawieść
+
