@@ -76,6 +76,16 @@ class Reservation(models.Model):
             raise ValidationError(gl("Wybrany fryzjer nie ma specjalizacji do realizacji wskazanej usługi."))
  
     def save(self, *args, **kwargs):
-        if self.service and self.service.duration and not self.end_time:
-           self.end_time = self.start_time + self.service.duration
+        if not self.start_time:
+            raise ValidationError("Czas rozpoczęcia musi być ustawiony.")
+        
+        if not self.service:
+            raise ValidationError("Usługa musi być przypisana do rezerwacji.")
+
+        if not isinstance(self.service.duration, timezone.timedelta):
+            raise ValidationError("Czas trwania usługi musi być określony jako timedelta.")
+
+        if not self.end_time:
+            self.end_time = self.start_time + self.service.duration
+
         super().save(*args, **kwargs)
