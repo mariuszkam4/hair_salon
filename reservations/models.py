@@ -18,6 +18,9 @@ class Hairdresser(models.Model):
 
     def __str__(self):
         return self.name
+    
+    def has_specialization(self, specialization):
+        return self.specialization.filter(specialization=specialization).exists()
 
 class SpecializationChoice(models.Model):
     specialization = models.CharField(
@@ -33,34 +36,44 @@ class Service(models.Model):
     name = models.CharField(max_length=100)
     duration = models.DurationField()
     cost = models.DecimalField(max_digits=5, decimal_places=2)
+    specializations = models.ManyToManyField(
+        'SpecializationChoice',
+        related_name='services',
+        verbose_name='specializations',
+    )
 
     def __str__(self):
         return self.name
+    
+    def get_specializations(self):
+        return [spec.specialization for spec in self.specializations.all()]
 
 class Reservation(models.Model):
     hairdresser = models.ForeignKey(Hairdresser, on_delete=models.CASCADE)
     service = models.ForeignKey(Service, on_delete=models.SET_NULL, null=True)
-    start_time = models.DateField()
+    start_time = models.DateTimeField()
     end_time = models.DateTimeField()
 
     def __str__(self):
         return f"{self.hairdresser.name} rezerwacja na {self.start_time}"
-    
+
     def clean(self):
-        # Konwersja start_time na datetime
-        start_datetime = datetime.combine(self.start_time, time.min)
-        start_datetime = timezone.make_aware(start_datetime)
+        if timezone.is_aware(self.start_time):
+            start_datetime = self.start_time
+        else:
+            start_datetime = timezone.make_aware(self.start_time)
         
-        # Sprawdzenie, czy end_time jest instancją datetime
-        if not isinstance(self.end_time, datetime):
-            raise ValidationError(gl('Czas zakończenia musi być dokładną datą i czasem.'))
-        
+        if not timezone.is_aware(self.end_time):
+            raise ValidationError(gl('Czas zakończenia musi być świadomą strefy czasowej datą i czasem.'))
+
         if self.end_time <= start_datetime:
             raise ValidationError(gl('Zakończenie rezerwacji nie może mieć miejsca przed terminem jej rozpoczęcia.'))
+        
+        service_specializations = self.service.get_specializations() if self.service else []
+        if not any(self.hairdresser.has_specialization(spec) for spec in service_specializations):
+            raise ValidationError(gl("Wybrany fryzjer nie ma specjalizacji do realizacji wskazanej usługi."))
     
     def save(self, *args, **kwargs):
         if self.service and self.service.duration and not self.end_time:
-            start_datetime = datetime.combine(self.start_time, time.min)
-            start_datetime = timezone.make_aware(start_datetime)
-            self.end_time = start_datetime + self.service.duration 
+           self.end_time = self.start_time + self.service.duration
         super().save(*args, **kwargs)
