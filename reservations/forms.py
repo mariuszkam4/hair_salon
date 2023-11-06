@@ -6,9 +6,15 @@ from django.contrib.admin.widgets import FilteredSelectMultiple
 from .models import Service, SpecializationChoice, Hairdresser, Reservation
 
 class ReservationForm(forms.ModelForm):
+    end_time = forms.DateTimeField(required=False, widget=forms.DateTimeInput(
+        attrs={'type': 'datetime-local'},
+        format = '%Y-%m-%dT%H:%M'),
+        input_formats=('%Y-%m-%dT%H:%M',)
+        )
+    
     class Meta:
         model = Reservation
-        fields = ['hairdresser', 'service', 'start_time']
+        fields = ['hairdresser', 'service', 'start_time', 'end_time']
         widgets = {
             'start_time': forms.DateTimeInput(attrs={'type': 'datetime-local'}, format='%Y-%m-%dT%H:%M'),
         }
@@ -21,10 +27,11 @@ class ReservationForm(forms.ModelForm):
         cleaned_data = super().clean()
         start_time = cleaned_data.get("start_time")
         service = cleaned_data.get("service")
+        end_time = cleaned_data.get("end_time")
 
-        if service and start_time:
+        if service and start_time and not end_time:
             # Oblicz czas zakończenia na podstawie czasu trwania usługi
-            end_time = start_time + service.duration
+            cleaned_data['end_time'] = start_time + service.duration
             if end_time <= start_time:
                 raise ValidationError(_('Czas zakończenia usługi musi być później niż czas jej rozpoczęcia.'))
 
@@ -32,23 +39,9 @@ class ReservationForm(forms.ModelForm):
 
     def save(self, commit=True):
         instance = super(ReservationForm, self).save(commit=False)
-        if instance.service and instance.start_time:
+        if not instance.end_time and instance.service and instance.start_time:
             # Ustaw czas zakończenia na podstawie czasu trwania usługi
             instance.end_time = instance.start_time + instance.service.duration
-        if commit:
-            instance.save()
-        return instance
-
-class ReservationAdminForm(forms.ModelForm):
-    class Meta:
-        model = Reservation
-        fields = '__all__'
-        exclude = ('end_time',)
-
-    def save(self, commit=True):
-        instance = super(ReservationAdminForm, self).save(commit=False)
-        if not instance.end_time:
-           instance.end_time = instance.start_time + instance.service.duration
         if commit:
             instance.save()
         return instance
