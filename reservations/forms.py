@@ -3,7 +3,7 @@ from .models import Reservation, Service
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.contrib.admin.widgets import FilteredSelectMultiple
-from .models import Service, SpecializationChoice, Hairdresser
+from .models import Service, SpecializationChoice, Hairdresser, Reservation
 
 class ReservationForm(forms.ModelForm):
     class Meta:
@@ -35,6 +35,20 @@ class ReservationForm(forms.ModelForm):
         if instance.service and instance.start_time:
             # Ustaw czas zakończenia na podstawie czasu trwania usługi
             instance.end_time = instance.start_time + instance.service.duration
+        if commit:
+            instance.save()
+        return instance
+
+class ReservationAdminForm(forms.ModelForm):
+    class Meta:
+        model = Reservation
+        fields = '__all__'
+        exclude = ('end_time',)
+
+    def save(self, commit=True):
+        instance = super(ReservationAdminForm, self).save(commit=False)
+        if not instance.end_time:
+           instance.end_time = instance.start_time + instance.service.duration
         if commit:
             instance.save()
         return instance
@@ -78,13 +92,13 @@ class HairdresserAdminForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(HairdresserAdminForm, self).__init__(*args, **kwargs)
         if self.instance and self.instance.pk:
-            self.fields['specializations'].initial = self.instance.specializations.all()
+            self.fields['specialization'].initial = self.instance.specialization.all()
     
     def save(self, commit=True):
         hairdresser = super(HairdresserAdminForm, self).save(commit=False)
         if commit:
             hairdresser.save()
         if hairdresser.pk:
-            hairdresser.specializations.set(self.cleaned_data['specializations'])
+            hairdresser.specialization.set(self.cleaned_data['specialization'])
             self.save_m2m()
         return hairdresser

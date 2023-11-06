@@ -4,7 +4,7 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 import datetime
 from .models import Hairdresser, Service, Reservation, SpecializationChoice
-from .forms import ServiceAdminForm, HairdresserAdminForm
+from .forms import ServiceAdminForm, HairdresserAdminForm, ReservationAdminForm
 
 class HairdresserAdmin(admin.ModelAdmin):
     form = HairdresserAdminForm
@@ -18,7 +18,7 @@ class HairdresserAdmin(admin.ModelAdmin):
         js = ('/admin/jsi18n',)
 
     def list_specializations(self, obj):
-        return ", ".join([s.get_specialization_display() for s in obj.specializations.all()])
+        return ", ".join([s.get_specialization_display() for s in obj.specialization.all()])
     list_specializations.short_description = 'Specializations'
 
 class ServiceAdmin(admin.ModelAdmin):
@@ -33,6 +33,7 @@ class ServiceAdmin(admin.ModelAdmin):
     list_specializations.short_description = "Specializations"
 
 class ReservationAdmin(admin.ModelAdmin):
+    form = ReservationAdminForm
     list_display = ('hairdresser', 'day_column', 'time_column', 'service')
 
     def day_column(self, obj):
