@@ -32,6 +32,8 @@ class ReservationForm(forms.ModelForm):
         if service and start_time and not end_time:
             # Oblicz czas zakończenia na podstawie czasu trwania usługi
             cleaned_data['end_time'] = start_time + service.duration
+            end_time = cleaned_data['end_time']
+            
             if end_time <= start_time:
                 raise ValidationError(_('Czas zakończenia usługi musi być później niż czas jej rozpoczęcia.'))
 

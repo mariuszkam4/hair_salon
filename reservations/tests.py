@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.contrib.admin.sites import AdminSite
 from .admin import ReservationAdmin
 from .forms import ReservationForm
+from datetime import datetime
 
 class HairdresserSpecializationTestCase(TestCase):
     def setUp(self):
@@ -106,16 +107,25 @@ class ReservationModelTests(TestCase):
 
 class ReservationAdminFormTest(TestCase):
     def setUp(self):
+        # Tworzenie specjalizacji
+        self.spec_m = SpecializationChoice.objects.create(specialization='M')
+        
         # Tworzenie instancji fryzjera
         self.hairdresser = Hairdresser.objects.create(name="Testowy fryzjer")
+        self.hairdresser.specialization.add(self.spec_m)
 
         # Tworzenie instancji usługi
         duration = timedelta(hours=1) 
 
-        self.service = Service.objects.create(name="Test service", duration=duration, cost = 100)
+        self.service = Service.objects.create(
+            name="Test service", 
+            duration=duration, 
+            cost = 100,
+        )
+        self.service.specializations.add(self.spec_m)
 
         # Czas początku rezerwacji do użycia w testach
-        self.start_time = timezone.now()
+        self.start_time = datetime(2023, 11, 6, 12, 00, 00, tzinfo=timezone.utc)
         
         self.site = AdminSite()
 
@@ -124,7 +134,7 @@ class ReservationAdminFormTest(TestCase):
         form_data = {
             'hairdresser': self.hairdresser.id,
             'service': self.service.id,
-            'start_time': self.start_time.strftime('%Y-%m-%dT%H:%M'),
+            'start_time': datetime(2023, 11, 6, 12, 00, 00, tzinfo=timezone.utc),
         }
         form = ReservationForm(data=form_data)
         self.assertTrue(form.is_valid(), form.errors)
