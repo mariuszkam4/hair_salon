@@ -57,18 +57,18 @@ class Reservation(models.Model):
         return f"{self.hairdresser.name} rezerwacja na {self.start_time}"
 
     def clean(self):
-        if self.start_time and not timezone.is_aware(self.start_time):
-            start_datetime = timezone.make_aware(self.start_time)
-        else:
-            start_datetime = self.start_time
+        if not self.start_time:
+            raise ValidationError("Czas rozpoczęcia musi być ustawiony.")      
+        elif not timezone.is_aware(self.start_time):
+            self.start_time = timezone.make_aware(self.start_time)
+        
+        if not self.end_time and self.service:
+            self.end_time = self.start_time + self.service.duration
 
-        if self.end_time is None:
-            raise ValidationError(gl('Czas zakończenia musi być ustawiony.'))
-
-        if not timezone.is_aware(self.end_time):
+        if self.end_time and not timezone.is_aware(self.end_time):
             raise ValidationError(gl('Czas zakończenia musi być wartością zgodną z obowiązującą strefą czasową.'))
 
-        if self.end_time <= start_datetime:
+        if self.end_time and self.end_time <= self.start_time:
             raise ValidationError(gl('Zakończenie rezerwacji nie może mieć miejsca przed terminem jej rozpoczęcia.'))
 
         service_specializations = self.service.get_specializations() if self.service else []
@@ -76,9 +76,6 @@ class Reservation(models.Model):
             raise ValidationError(gl("Wybrany fryzjer nie ma specjalizacji do realizacji wskazanej usługi."))
  
     def save(self, *args, **kwargs):
-        if not self.start_time:
-            raise ValidationError("Czas rozpoczęcia musi być ustawiony.")
-        
         if not self.service:
             raise ValidationError("Usługa musi być przypisana do rezerwacji.")
 
