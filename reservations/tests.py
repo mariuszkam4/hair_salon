@@ -3,6 +3,9 @@ from django.utils import timezone
 from .models import Hairdresser, SpecializationChoice, Service, Reservation
 from datetime import timedelta
 from django.core.exceptions import ValidationError
+from django.contrib.admin.sites import AdminSite
+from .admin import ReservationAdmin
+from .forms import ReservationForm
 
 class HairdresserSpecializationTestCase(TestCase):
     def setUp(self):
@@ -91,8 +94,6 @@ class ReservationModelTests(TestCase):
     
     # Test specjalizacji fryzjera
     def test_reservation_with_invalid_hairdresser_raises_error(self):
-        # Załóżmy, że `has_specialization` jest metodą w `Hairdresser`
-        # i że `get_specializations` jest metodą w `Service`
         # Ustalamy, że fryzjer nie ma wymaganej specjalizacji
         self.hairdresser.specialization.clear()         
         with self.assertRaises(ValidationError):
@@ -103,3 +104,41 @@ class ReservationModelTests(TestCase):
             )
             reservation.full_clean()  # Walidacja powinna zawieść
 
+class ReservationAdminFormTest(TestCase):
+    def setUp(self):
+        # Tworzenie instancji fryzjera
+        self.hairdresser = Hairdresser.objects.create(name="Testowy fryzjer")
+
+        # Tworzenie instancji usługi
+        duration = timedelta(hours=1) 
+
+        self.service = Service.objects.create(name="Test service", duration=duration, cost = 100)
+
+        # Czas początku rezerwacji do użycia w testach
+        self.start_time = timezone.now()
+        
+        self.site = AdminSite()
+
+    def test_reservation_admin_form_save_without_end_time(self):
+        # Tworzenie danych formularza bez podania wartości 'end_time'
+        form_data = {
+            'hairdresser': self.hairdresser.id,
+            'service': self.service.id,
+            'start_time': self.start_time.strftime('%Y-%m-%dT%H:%M'),
+        }
+        form = ReservationForm(data=form_data)
+        self.assertTrue(form.is_valid(), form.errors)
+
+        # Zapisanie formularza i utworzenie obiektu rezerwacji
+        reservation = form.save()
+
+        # Sprawdzenie czy wartość dla 'end_time" została ustawiona automatycznie
+        self.assertIsNotNone(reservation.end_time)
+        self.assertEqual(reservation.end_time, self.start_time + self.service.duration)
+
+    def test_reservation_admin_form_display(self):
+        # Sprawdzenie, czy formularz w panelu administracyjnym jest poprawnie wyświetlany
+        modeladmin = ReservationAdmin(Reservation, self.site)
+        form = modeladmin.get_form(None)
+        self.assertIn('end_time', form.base_fields)
+        self.assertFalse(form.base_fields['end_time'].required)
