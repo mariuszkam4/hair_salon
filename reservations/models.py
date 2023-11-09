@@ -52,11 +52,13 @@ class Reservation(models.Model):
     service = models.ForeignKey(Service, on_delete=models.SET_NULL, null=True)
     start_time = models.DateTimeField()
     end_time = models.DateTimeField(blank=True, null=True)
-
+    
     def __str__(self):
         return f"{self.hairdresser.name} rezerwacja na {self.start_time}"
 
     def clean(self):
+        print ("Metoda clean wywołana")
+        print (f"Czas start_time wygląda tak: {self.start_time}")
         if not self.start_time:
             raise ValidationError("Czas rozpoczęcia musi być ustawiony.")      
         elif not timezone.is_aware(self.start_time):

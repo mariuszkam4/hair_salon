@@ -4,6 +4,9 @@ from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from .models import Service, SpecializationChoice, Hairdresser, Reservation
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ReservationForm(forms.ModelForm):
     end_time = forms.DateTimeField(required=False, widget=forms.DateTimeInput(
@@ -28,6 +31,10 @@ class ReservationForm(forms.ModelForm):
         start_time = cleaned_data.get("start_time")
         service = cleaned_data.get("service")
         end_time = cleaned_data.get("end_time")
+
+        logger.debug(f"Cleaned start time: {start_time}")
+        logger.debug(f"Cleaned service: {service}")
+        logger.debug(f"Cleaned end time: {end_time}")       
 
         if service and start_time and not end_time:
             # Oblicz czas zakończenia na podstawie czasu trwania usługi
