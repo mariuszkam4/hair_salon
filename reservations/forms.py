@@ -2,6 +2,8 @@ from django import forms
 from .models import Reservation, Service
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
+from datetime import datetime
+from django.utils import timezone
 from django.contrib.admin.widgets import FilteredSelectMultiple
 from .models import Service, SpecializationChoice, Hairdresser, Reservation
 import logging
@@ -24,17 +26,36 @@ class ReservationForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super(ReservationForm, self).__init__(*args, **kwargs)
-        self.fields['start_time'].input_formats = ('%Y-%m-%dT%H:%M',)
-
+        self.fields['start_time'].input_formats = ['%Y-%m-%dT%H:%M', '%Y-%m-%d %H:%M']
+ 
     def clean(self):
+        print("Metoda clean w ReservationForm wywołana")
+        print(f"Widget output: {self['start_time'].value()}")
+        print (f"Surowe dane POST : {self.data}")
         cleaned_data = super().clean()
+        print(f"Cleaned data: {cleaned_data}")
+        print(f"Błędy walidacji: {self.errors}")
+        
+        raw_start_time = self.data.get("start_time")
+        print(f"Raw start time from POST data: {raw_start_time}")
+        
+        if raw_start_time:
+            try:
+                naive_start_time = datetime.strptime(raw_start_time, "%Y-%m-%dT%H:%M")
+                aware_start_time = timezone.make_aware(naive_start_time, timezone.get_default_timezone())
+                cleaned_data["start_time"] = aware_start_time
+            except ValueError:
+                self.add_error('start_time', "Nieprawidłowy format daty i godziny.")
+                return cleaned_data  
+                         
         start_time = cleaned_data.get("start_time")
         service = cleaned_data.get("service")
         end_time = cleaned_data.get("end_time")
-
-        logger.debug(f"Cleaned start time: {start_time}")
-        logger.debug(f"Cleaned service: {service}")
-        logger.debug(f"Cleaned end time: {end_time}")       
+       
+        print (f"Start_time po walidacji metodą clean w ReservationForm:{start_time}")
+        print (f"Format daty po metodzie clean w formularzu: {type(start_time)}")
+        print (f"Cleaned service: {service}")
+        print (f"Cleaned end time: {end_time}")       
 
         if service and start_time and not end_time:
             # Oblicz czas zakończenia na podstawie czasu trwania usługi
@@ -44,7 +65,9 @@ class ReservationForm(forms.ModelForm):
             if end_time <= start_time:
                 raise ValidationError(_('Czas zakończenia usługi musi być później niż czas jej rozpoczęcia.'))
 
+        print (f"Błędy w ReservationForm {self.errors}")
         return cleaned_data
+    
 
     def save(self, commit=True):
         instance = super(ReservationForm, self).save(commit=False)

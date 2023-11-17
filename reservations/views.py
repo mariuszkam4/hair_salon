@@ -21,7 +21,8 @@ def reservation_list(request):
 def schedule_reservation(request):
     logger.debug("Widok został wywołany")
     if request.method == "POST":
-        logger.debug(f"Raw POST data: {request.POST}")
+        print ("Request POST poniżej:")
+        print(request.POST)
         form = ReservationForm(request.POST)
         if form.is_valid():
             reservation = form.save(commit=False)
@@ -51,6 +52,7 @@ def schedule_reservation(request):
 
 def testowy(request):
     if request.method == 'POST':
+        logger.debug(f"Raw POST data: {request.POST}")
         form = ReservationForm(request.POST)
         if form.is_valid():
             form.save()

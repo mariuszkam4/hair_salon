@@ -57,7 +57,7 @@ class Reservation(models.Model):
         return f"{self.hairdresser.name} rezerwacja na {self.start_time}"
 
     def clean(self):
-        print ("Metoda clean wywołana")
+        print ("Metoda clean w modelu wywołana")
         print (f"Czas start_time wygląda tak: {self.start_time}")
         if not self.start_time:
             raise ValidationError("Czas rozpoczęcia musi być ustawiony.")      
@@ -65,18 +65,20 @@ class Reservation(models.Model):
             self.start_time = timezone.make_aware(self.start_time)
         
         if not self.end_time and self.service:
-            self.end_time = self.start_time + self.service.duration
+            # Ustawienie end_time jako świadoma strefa czasowa
+            naive_end_time = self.start_time + self.service.duration
+            self.end_time = timezone.make_aware(naive_end_time, timezone.get_default_timezone())
 
-        if self.end_time and not timezone.is_aware(self.end_time):
-            raise ValidationError(gl('Czas zakończenia musi być wartością zgodną z obowiązującą strefą czasową.'))
+        try:
+            if self.end_time and not timezone.is_aware(self.end_time):
+                raise ValidationError(gl('Czas zakończenia musi być wartością zgodną z obowiązującą strefą czasową.'))
 
-        if self.end_time and self.end_time <= self.start_time:
-            raise ValidationError(gl('Zakończenie rezerwacji nie może mieć miejsca przed terminem jej rozpoczęcia.'))
-
-        service_specializations = self.service.get_specializations() if self.service else []
-        if not any(self.hairdresser.has_specialization(spec) for spec in service_specializations):
-            raise ValidationError(gl("Wybrany fryzjer nie ma specjalizacji do realizacji wskazanej usługi."))
- 
+            if self.end_time and self.end_time <= self.start_time:
+                raise ValidationError(gl('Zakończenie rezerwacji nie może mieć miejsca przed terminem jej rozpoczęcia.'))
+        except ValidationError as e:
+            print (f"Błędy walidacji metody clean w modelu:\n{e}")
+            raise e
+        
     def save(self, *args, **kwargs):
         if not self.service:
             raise ValidationError("Usługa musi być przypisana do rezerwacji.")
@@ -84,7 +86,19 @@ class Reservation(models.Model):
         if not isinstance(self.service.duration, timezone.timedelta):
             raise ValidationError("Czas trwania usługi musi być określony jako timedelta.")
 
-        if not self.end_time:
-            self.end_time = self.start_time + self.service.duration
+        # Upewniamy się, że start_time jest świadomy strefy czasowej
+        if self.start_time and not timezone.is_aware(self.start_time):
+            self.start_time = timezone.make_aware(self.start_time, timezone.get_default_timezone())
 
+        # Ustawiamy end_time jako świadomy strefy czasowej
+        if not self.end_time:
+            naive_end_time = self.start_time + self.service.duration
+            self.end_time = timezone.make_aware(naive_end_time, timezone.get_default_timezone())
+
+        try:
+            self.clean()
+        except ValidationError as e:
+            print (f"Błędy walidacji metody save modelu:\n{e}")
+            raise e
+        
         super().save(*args, **kwargs)

@@ -25,18 +25,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
 
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'handlers': {
         'console': {
+            'level': 'DEBUG',
             'class': 'logging.StreamHandler',
         },
     },
     'loggers': {
-        'django': {
+        '': {
             'handlers': ['console'],
             'level': 'DEBUG',
             'propagate': True,
@@ -44,6 +44,7 @@ LOGGING = {
     },
 }
 
+DEBUG = True
 
 # Application definition
 
@@ -136,7 +137,8 @@ LANGUAGE_CODE = 'en-us'
 
 TIME_ZONE = 'Europe/Warsaw'
 
-USE_I18N = True
+# USE_I18N = False
+USE_I10N = True
 
 USE_TZ = True
 
