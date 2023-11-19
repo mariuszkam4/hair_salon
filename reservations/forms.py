@@ -11,64 +11,29 @@ import logging
 logger = logging.getLogger(__name__)
 
 class ReservationForm(forms.ModelForm):
-    end_time = forms.DateTimeField(required=False, widget=forms.DateTimeInput(
-        attrs={'type': 'datetime-local'},
-        format = '%Y-%m-%dT%H:%M'),
-        input_formats=('%Y-%m-%dT%H:%M',)
-        )
-    
     class Meta:
         model = Reservation
-        fields = ['hairdresser', 'service', 'start_time', 'end_time']
+        fields = ['hairdresser', 'service', 'start_date', 'start_time']
         widgets = {
-            'start_time': forms.DateTimeInput(attrs={'type': 'datetime-local'}, format='%Y-%m-%dT%H:%M'),
+            'start_date': forms.DateInput(attrs={'type': 'date'}),
+            'start_time': forms.TimeInput(attrs={'type': 'time'}),
         }
 
-    def __init__(self, *args, **kwargs):
-        super(ReservationForm, self).__init__(*args, **kwargs)
-        self.fields['start_time'].input_formats = ['%Y-%m-%dT%H:%M', '%Y-%m-%d %H:%M']
- 
     def clean(self):
-        print("Metoda clean w ReservationForm wywołana")
-        print(f"Widget output: {self['start_time'].value()}")
-        print (f"Surowe dane POST : {self.data}")
         cleaned_data = super().clean()
-        print(f"Cleaned data: {cleaned_data}")
-        print(f"Błędy walidacji: {self.errors}")
-        
-        raw_start_time = self.data.get("start_time")
-        print(f"Raw start time from POST data: {raw_start_time}")
-        
-        if raw_start_time:
-            try:
-                naive_start_time = datetime.strptime(raw_start_time, "%Y-%m-%dT%H:%M")
-                aware_start_time = timezone.make_aware(naive_start_time, timezone.get_default_timezone())
-                cleaned_data["start_time"] = aware_start_time
-            except ValueError:
-                self.add_error('start_time', "Nieprawidłowy format daty i godziny.")
-                return cleaned_data  
-                         
-        start_time = cleaned_data.get("start_time")
-        service = cleaned_data.get("service")
-        end_time = cleaned_data.get("end_time")
-       
-        print (f"Start_time po walidacji metodą clean w ReservationForm:{start_time}")
-        print (f"Format daty po metodzie clean w formularzu: {type(start_time)}")
-        print (f"Cleaned service: {service}")
-        print (f"Cleaned end time: {end_time}")       
+        start_date = cleaned_data.get('start_date')
+        start_time = cleaned_data.get('start_time')
+        service = cleaned_data.get('service')
 
-        if service and start_time and not end_time:
-            # Oblicz czas zakończenia na podstawie czasu trwania usługi
-            cleaned_data['end_time'] = start_time + service.duration
-            end_time = cleaned_data['end_time']
-            
-            if end_time <= start_time:
-                raise ValidationError(_('Czas zakończenia usługi musi być później niż czas jej rozpoczęcia.'))
+        if start_date and start_time and service:
+            start_datetime = timezone.make_aware(datetime.combine(start_date, start_time))
+            end_datetime = start_datetime + service.duration
+            cleaned_data['end_time'] = end_datetime.time()
+        else:
+            raise ValidationError(_('Data i godzina rozpoczęcia oraz usługa są wymagane.'))
 
-        print (f"Błędy w ReservationForm {self.errors}")
         return cleaned_data
     
-
     def save(self, commit=True):
         instance = super(ReservationForm, self).save(commit=False)
         if not instance.end_time and instance.service and instance.start_time:

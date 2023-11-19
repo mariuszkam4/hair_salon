@@ -2,6 +2,7 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as gl
 from django.utils import timezone
+from datetime import datetime
 
 class Hairdresser(models.Model):
     SPECIALIZATIONS = [
@@ -50,55 +51,40 @@ class Service(models.Model):
 class Reservation(models.Model):
     hairdresser = models.ForeignKey(Hairdresser, on_delete=models.CASCADE)
     service = models.ForeignKey(Service, on_delete=models.SET_NULL, null=True)
-    start_time = models.DateTimeField()
-    end_time = models.DateTimeField(blank=True, null=True)
-    
+    start_date = models.DateField()
+    start_time = models.TimeField()
+    end_time = models.TimeField(blank=True, null=True)
+
     def __str__(self):
-        return f"{self.hairdresser.name} rezerwacja na {self.start_time}"
+        return f"{self.hairdresser.name} rezerwacja na {self.start_date} o godz. {self.start_time}"
 
     def clean(self):
-        print ("Metoda clean w modelu wywołana")
-        print (f"Czas start_time wygląda tak: {self.start_time}")
-        if not self.start_time:
-            raise ValidationError("Czas rozpoczęcia musi być ustawiony.")      
-        elif not timezone.is_aware(self.start_time):
-            self.start_time = timezone.make_aware(self.start_time)
-        
-        if not self.end_time and self.service:
-            # Ustawienie end_time jako świadoma strefa czasowa
-            naive_end_time = self.start_time + self.service.duration
-            self.end_time = timezone.make_aware(naive_end_time, timezone.get_default_timezone())
+        if self.start_date and self.start_time and self.service:
+            start_datetime = timezone.make_aware(datetime.combine(self.start_date, self.start_time))
+            end_datetime = start_datetime + self.service.duration
 
-        try:
-            if self.end_time and not timezone.is_aware(self.end_time):
-                raise ValidationError(gl('Czas zakończenia musi być wartością zgodną z obowiązującą strefą czasową.'))
+            if end_datetime.date() != self.start_date:
+                raise ValidationError(gl('Rezerwacja musi zakończyć się tego samego dnia.'))
 
-            if self.end_time and self.end_time <= self.start_time:
-                raise ValidationError(gl('Zakończenie rezerwacji nie może mieć miejsca przed terminem jej rozpoczęcia.'))
-        except ValidationError as e:
-            print (f"Błędy walidacji metody clean w modelu:\n{e}")
-            raise e
-        
+            self.end_time = end_datetime.time()
+        else:
+            raise ValidationError(gl('Data i godzina rozpoczęcia oraz usługa są wymagane.'))
+
     def save(self, *args, **kwargs):
+        print("Metoda save w modelu Reservation wywołana")
         if not self.service:
             raise ValidationError("Usługa musi być przypisana do rezerwacji.")
 
         if not isinstance(self.service.duration, timezone.timedelta):
             raise ValidationError("Czas trwania usługi musi być określony jako timedelta.")
 
-        # Upewniamy się, że start_time jest świadomy strefy czasowej
-        if self.start_time and not timezone.is_aware(self.start_time):
-            self.start_time = timezone.make_aware(self.start_time, timezone.get_default_timezone())
+        # Tworzenie świadomego czasu rozpoczęcia z daty i godziny
+        combined_start_datetime = datetime.combine(self.start_date, self.start_time)
+        aware_start_datetime = timezone.make_aware(combined_start_datetime, timezone.get_default_timezone())
 
-        # Ustawiamy end_time jako świadomy strefy czasowej
+        # Jeśli end_time nie jest ustawiony, oblicz go na podstawie czasu trwania usługi
         if not self.end_time:
-            naive_end_time = self.start_time + self.service.duration
-            self.end_time = timezone.make_aware(naive_end_time, timezone.get_default_timezone())
+            naive_end_datetime = aware_start_datetime + self.service.duration
+            self.end_time = naive_end_datetime.time()
 
-        try:
-            self.clean()
-        except ValidationError as e:
-            print (f"Błędy walidacji metody save modelu:\n{e}")
-            raise e
-        
         super().save(*args, **kwargs)
