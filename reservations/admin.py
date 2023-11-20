@@ -53,12 +53,12 @@ class ReservationAdmin(admin.ModelAdmin):
         return super().get_queryset(request).filter(start_date__gte=datetime.date.today())
 
     def save_model(self, request, obj, form, change):
-        # Ustawienie end_time na podstawie czasu trwania usługi, jeśli nie zostało podane
+        # Obliczanie end_time tylko wtedy, gdy nie jest już ustalone
         if not obj.end_time and obj.start_time and obj.service:
             end_datetime = datetime.combine(obj.start_date, obj.start_time) + obj.service.duration
             obj.end_time = end_datetime.time()
 
-        # Sprawdzenie, czy rezerwacja nie koliduje z inną
+        # Sprawdzenie konfliktów terminów
         conflicting_reservations = Reservation.objects.filter(
             hairdresser=obj.hairdresser,
             start_date=obj.start_date,

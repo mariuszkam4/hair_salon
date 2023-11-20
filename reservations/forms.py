@@ -20,26 +20,26 @@ class ReservationForm(forms.ModelForm):
             'end_time': forms.TimeInput(attrs={'type': 'time', 'required': False}),
         }
 
-    def clean(self):
+    def clean(self):        
         cleaned_data = super().clean()
         start_date = cleaned_data.get('start_date')
         start_time = cleaned_data.get('start_time')
         end_time = cleaned_data.get('end_time')
         service = cleaned_data.get('service')
 
-        if start_date and start_time and service:
-            start_datetime = timezone.make_aware(datetime.combine(start_date, start_time))
-            if end_time:
-                end_datetime = timezone.make_aware(datetime.combine(start_date, end_time))
-                if end_datetime < start_datetime:
-                    raise ValidationError(_('Czas zakończenia nie może być wcześniejszy niż czas rozpoczęcia.'))
-            else:
-                # Obliczenie domyślnego czasu zakończenia na podstawie czasu trwania usługi
-                end_datetime = start_datetime + service.duration
-                cleaned_data['end_time'] = end_datetime.time()
-
-        else:
+        if not (start_date and start_time and service):
             raise ValidationError(_('Data i godzina rozpoczęcia oraz usługa są wymagane.'))
+
+        start_datetime = timezone.make_aware(datetime.combine(start_date, start_time))
+
+        if end_time:
+            end_datetime = timezone.make_aware(datetime.combine(start_date, end_time))
+            if end_datetime < start_datetime:
+                raise ValidationError(_('Czas zakończenia nie może być wcześniejszy niż czas rozpoczęcia.'))
+        else:
+            # Obliczenie domyślnego czasu zakończenia na podstawie czasu trwania usługi"                        
+            end_datetime = start_datetime + service.duration
+            cleaned_data['end_time'] = end_datetime.time()
 
         return cleaned_data
 
@@ -47,11 +47,14 @@ class ReservationForm(forms.ModelForm):
         instance = super(ReservationForm, self).save(commit=False)
         if instance.start_date and instance.start_time and instance.service:
             start_datetime = timezone.make_aware(datetime.combine(instance.start_date, instance.start_time))
-            if instance.end_time:
-                end_datetime = timezone.make_aware(datetime.combine(instance.start_date, instance.end_time))
-                instance.end_time = end_datetime.time()
+            
+            # Użyj end_time z cleaned_data
+            end_time = self.cleaned_data.get('end_time')
+            if end_time:
+                instance.end_time = end_time                
             else:
-                instance.end_time = (start_datetime + instance.service.duration).time()
+                # Ustawienie czasu zakończenia tylko, gdy nie został podany ręcznie
+                instance.end_time = (start_datetime + instance.service.duration).time()                
 
         if commit:
             instance.save()

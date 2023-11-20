@@ -1,6 +1,6 @@
 from django.db import models
 from django.core.exceptions import ValidationError
-from django.utils.translation import gettext_lazy as gl
+from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from datetime import datetime
 
@@ -53,7 +53,7 @@ class Reservation(models.Model):
     service = models.ForeignKey(Service, on_delete=models.SET_NULL, null=True)
     start_date = models.DateField()
     start_time = models.TimeField()
-    end_time = models.TimeField(blank=True, null=True)
+    end_time = models.TimeField(blank=True, null=True)    
 
     def __str__(self):
         return f"{self.hairdresser.name} rezerwacja na {self.start_date} o godz. {self.start_time}"
@@ -64,27 +64,25 @@ class Reservation(models.Model):
             end_datetime = start_datetime + self.service.duration
 
             if end_datetime.date() != self.start_date:
-                raise ValidationError(gl('Rezerwacja musi zakończyć się tego samego dnia.'))
+                raise ValidationError(_('Rezerwacja musi zakończyć się tego samego dnia.'))
 
             self.end_time = end_datetime.time()
         else:
-            raise ValidationError(gl('Data i godzina rozpoczęcia oraz usługa są wymagane.'))
+            raise ValidationError(_('Data i godzina rozpoczęcia oraz usługa są wymagane.'))
 
     def save(self, *args, **kwargs):
-        print("Metoda save w modelu Reservation wywołana")
-        if not self.service:
-            raise ValidationError("Usługa musi być przypisana do rezerwacji.")
+        if not (self.start_date and self.start_time and self.service):
+            raise ValidationError(_('Data i godzina rozpoczęcia oraz usługa są wymagane.'))
 
-        if not isinstance(self.service.duration, timezone.timedelta):
-            raise ValidationError("Czas trwania usługi musi być określony jako timedelta.")
+        start_datetime = timezone.make_aware(datetime.combine(self.start_date, self.start_time))
 
-        # Tworzenie świadomego czasu rozpoczęcia z daty i godziny
-        combined_start_datetime = datetime.combine(self.start_date, self.start_time)
-        aware_start_datetime = timezone.make_aware(combined_start_datetime, timezone.get_default_timezone())
-
-        # Jeśli end_time nie jest ustawiony, oblicz go na podstawie czasu trwania usługi
         if not self.end_time:
-            naive_end_datetime = aware_start_datetime + self.service.duration
-            self.end_time = naive_end_datetime.time()
+            end_datetime = start_datetime + self.service.duration
+            self.end_time = end_datetime.time()
+
+        if self.end_time:
+            end_datetime = timezone.make_aware(datetime.combine(self.start_date, self.end_time))
+            if end_datetime < start_datetime:
+                raise ValidationError(_('Czas zakończenia nie może być wcześniejszy niż czas rozpoczęcia.'))
 
         super().save(*args, **kwargs)
