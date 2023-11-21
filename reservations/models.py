@@ -69,6 +69,10 @@ class Reservation(models.Model):
             self.end_time = end_datetime.time()
         else:
             raise ValidationError(_('Data i godzina rozpoczęcia oraz usługa są wymagane.'))
+        
+        service_specializations = self.service.get_specializations() if self.service else []
+        if not any(self.hairdresser.has_specialization(spec) for spec in service_specializations):
+            raise ValidationError(_("Wybrany fryzjer nie ma specjalizacji do realizacji wskazanej usługi"))
 
     def save(self, *args, **kwargs):
         if not (self.start_date and self.start_time and self.service):
