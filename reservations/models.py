@@ -59,7 +59,7 @@ class Reservation(models.Model):
         return f"{self.hairdresser.name} rezerwacja na {self.start_date} o godz. {self.start_time}"
 
     def clean(self):
-        if self.start_date and self.start_time and self.service:
+        if self.hairdresser_id and self.start_date and self.start_time and self.service:
             start_datetime = timezone.make_aware(datetime.combine(self.start_date, self.start_time))
             end_datetime = start_datetime + self.service.duration
 
@@ -68,15 +68,15 @@ class Reservation(models.Model):
 
             self.end_time = end_datetime.time()
         else:
-            raise ValidationError(_('Data i godzina rozpoczęcia oraz usługa są wymagane.'))
+            raise ValidationError(_('Wypełnij wszystkie wymagane pola.'))
         
         service_specializations = self.service.get_specializations() if self.service else []
         if not any(self.hairdresser.has_specialization(spec) for spec in service_specializations):
             raise ValidationError(_("Wybrany fryzjer nie ma specjalizacji do realizacji wskazanej usługi"))
 
     def save(self, *args, **kwargs):
-        if not (self.start_date and self.start_time and self.service):
-            raise ValidationError(_('Data i godzina rozpoczęcia oraz usługa są wymagane.'))
+        if not (self.hairdresser and self.start_date and self.start_time and self.service):
+            raise ValidationError(_('Fryzjer, data i godzina rozpoczęcia oraz usługa są wymagane.'))
 
         start_datetime = timezone.make_aware(datetime.combine(self.start_date, self.start_time))
 

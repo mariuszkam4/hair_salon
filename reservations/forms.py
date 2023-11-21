@@ -26,9 +26,20 @@ class ReservationForm(forms.ModelForm):
         start_time = cleaned_data.get('start_time')
         end_time = cleaned_data.get('end_time')
         service = cleaned_data.get('service')
+        hairdresser = cleaned_data.get('hairdresser')
 
-        if not (start_date and start_time and service):
-            raise ValidationError(_('Data i godzina rozpoczęcia oraz usługa są wymagane.'))
+        errors = {}
+        if not hairdresser:
+            errors['hairdresser'] = ValidationError(_('Należy wskazać fryzjera do wykonania usługi'))
+        if not start_date:
+            errors['start_date'] = ValidationError(_('Data rozpoczęcia rezerwacji jest wymagana.'))
+        if not start_time:
+            errors['start_time'] = ValidationError(_('Czas rozpoczęcia rezerwacji jest wymagany.'))
+        if not service:
+            errors['service'] = ValidationError(_('Podanie usługi jest wymagane w rezerwacji.'))
+        
+        if errors:
+            raise ValidationError(errors)
 
         start_datetime = timezone.make_aware(datetime.combine(start_date, start_time))
 
