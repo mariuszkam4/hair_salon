@@ -67,37 +67,37 @@ class ReservationModelTests(TestCase):
         self.service.specializations.add(
             SpecializationChoice.objects.get(specialization='M'),            
         )
+        # Inicjalizacja daty i czasu początku rezerwacji
+        self.start_date = timezone.now().date()
+        self.start_time = timezone.now().time()
 
-        # Czas początku rezerwacji do użycia w testach
-        self.start_time = timezone.now().replace(second=0, microsecond=0)
+    def create_reservation(self, **kwargs):
+        defaults = {
+            'hairdresser': self.hairdresser,
+            'service': self.service,
+            'start_date': self.start_date,
+            'start_time': self.start_time,
+        }
+        defaults.update(kwargs)
+        return Reservation(**defaults)
    
     def test_reservation_end_time_auto_set(self):
         # Utworzenie rezerwacji bez jawnie ustwionego 'end_time'
-        reservation = Reservation(
-            hairdresser = self.hairdresser,
-            service = self.service,
-            start_date = self.start_time.date(),
-            start_time = self.start_time.time(),
-        )
+        reservation = self.create_reservation()
         reservation.save()
+        expected_end_time = (timezone.make_aware(datetime.combine(self.start_date, self.start_time)) + self.duration).time()
         # Sprawdzenie czy end_time' został ustawiony automatycznie
-        self.assertEqual(reservation.end_time, (self.start_time + self.duration).time())
+        self.assertEqual(reservation.end_time, expected_end_time)
     
     def test_reservation_end_time_manual_set(self):
-        # Utworzenie rezerwacji z jawnie ustawionym 'end_time'
-        end_time = (self.start_time + timedelta(hours=2)).time()
-        reservation = Reservation(
-            hairdresser = self.hairdresser,
-            service = self.service,
-            start_date = self.start_time.date(),
-            start_time = self.start_time.time(),
-            end_time = end_time,
-        )
-        reservation.save()
-        # Sprawdzenie, czy 'end_time' odpowiada ręcznie ustawionej wartości
-        self.assertEqual(reservation.end_time, end_time)      
-        
-    # Test specjalizacji fryzjera
+        manual_end_time = (timezone.make_aware(datetime.combine(self.start_date, self.start_time)) - timedelta(hours=2)).time()
+        reservation = self.create_reservation(end_time=manual_end_time)
+
+        with self.assertRaises(ValidationError) as context:
+            reservation.save()
+
+        self.assertIn('Czas zakończenia nie może być wcześniejszy niż czas rozpoczęcia.', str(context.exception))
+              
     def test_reservation_with_invalid_hairdresser_raises_error(self):
         # Ustalamy, że fryzjer nie ma wymaganej specjalizacji
         self.hairdresser.specialization.clear()         
@@ -109,3 +109,22 @@ class ReservationModelTests(TestCase):
             )
             reservation.full_clean()  # Walidacja powinna zawieść
 
+    def test_reservation_save_with_all_required_fields(self):
+        reservation = self.create_reservation()
+        reservation.save()
+        self.assertIsNotNone(reservation.pk)
+
+    def test_reservation_save_with_auto_end_time(self):
+        reservation = self.create_reservation()
+        reservation.save()
+
+        # Obliczanie oczekiwanego czasu zakończenia bez uwzględniania mikrosekund
+        expected_end_time = (timezone.make_aware(datetime.combine(self.start_date, self.start_time)) + self.service.duration).time().replace(microsecond=0)
+        
+        # Porównanie czasów bez mikrosekund
+        self.assertEqual(reservation.end_time.replace(microsecond=0), expected_end_time)
+
+    def test_reservation_save_with_invalid_end_time(self):
+        with self.assertRaises(ValidationError):
+            reservation = self.create_reservation(end_time=(timezone.now() - timedelta(hours=2)).time())
+            reservation.save()
