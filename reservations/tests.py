@@ -53,14 +53,24 @@ class ReservationModelTests(TestCase):
         # Tworzenie instancji fryzjera
         self.hairdresser = Hairdresser.objects.create(name="Testowy fryzjer")
 
+        # Specjalizacja 
+        SpecializationChoice.objects.create(specialization = "M")        
+        
         # Tworzenie instancji usługi
         self.duration = timedelta(hours=1) 
 
-        self.service = Service.objects.create(name="Test service", duration=self.duration, cost = 100)
+        self.service = Service.objects.create(
+            name="Test service", 
+            duration=self.duration, 
+            cost = 100, 
+        )
+        self.service.specializations.add(
+            SpecializationChoice.objects.get(specialization='M'),            
+        )
 
         # Czas początku rezerwacji do użycia w testach
         self.start_time = timezone.now().replace(second=0, microsecond=0)
-    
+   
     def test_reservation_end_time_auto_set(self):
         # Utworzenie rezerwacji bez jawnie ustwionego 'end_time'
         reservation = Reservation(
@@ -84,7 +94,7 @@ class ReservationModelTests(TestCase):
             end_time = end_time,
         )
         reservation.save()
-        # Sprawdzenie, czy 'end_time' odpowieada ręcznie ustwionej wartości
+        # Sprawdzenie, czy 'end_time' odpowiada ręcznie ustawionej wartości
         self.assertEqual(reservation.end_time, end_time)      
         
     # Test specjalizacji fryzjera
@@ -99,50 +109,3 @@ class ReservationModelTests(TestCase):
             )
             reservation.full_clean()  # Walidacja powinna zawieść
 
-# class ReservationAdminFormTest(TestCase):
-#     def setUp(self):
-#         # Tworzenie specjalizacji
-#         self.spec_m = SpecializationChoice.objects.create(specialization='M')
-        
-#         # Tworzenie instancji fryzjera
-#         self.hairdresser = Hairdresser.objects.create(name="Testowy fryzjer")
-#         self.hairdresser.specialization.add(self.spec_m)
-
-#         # Tworzenie instancji usługi
-#         duration = timedelta(hours=1) 
-
-#         self.service = Service.objects.create(
-#             name="Test service", 
-#             duration=duration, 
-#             cost = 100,
-#         )
-#         self.service.specializations.add(self.spec_m)
-
-#         # Czas początku rezerwacji do użycia w testach
-#         self.start_time = datetime(2023, 11, 6, 12, 00, 00, tzinfo=timezone.utc)
-        
-#         self.site = AdminSite()
-
-#     def test_reservation_admin_form_save_without_end_time(self):
-#         # Tworzenie danych formularza bez podania wartości 'end_time'
-#         form_data = {
-#             'hairdresser': self.hairdresser.id,
-#             'service': self.service.id,
-#             'start_time': datetime(2023, 11, 6, 12, 00, 00, tzinfo=timezone.utc),
-#         }
-#         form = ReservationForm(data=form_data)
-#         self.assertTrue(form.is_valid(), form.errors)
-
-#         # Zapisanie formularza i utworzenie obiektu rezerwacji
-#         reservation = form.save()
-
-#         # Sprawdzenie czy wartość dla 'end_time" została ustawiona automatycznie
-#         self.assertIsNotNone(reservation.end_time)
-#         self.assertEqual(reservation.end_time, self.start_time + self.service.duration)
-
-#     def test_reservation_admin_form_display(self):
-#         # Sprawdzenie, czy formularz w panelu administracyjnym jest poprawnie wyświetlany
-#         modeladmin = ReservationAdmin(Reservation, self.site)
-#         form = modeladmin.get_form(None)
-#         self.assertIn('end_time', form.base_fields)
-#         self.assertFalse(form.base_fields['end_time'].required)
