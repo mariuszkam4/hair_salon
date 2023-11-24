@@ -3,9 +3,6 @@ from django.utils import timezone
 from .models import Hairdresser, SpecializationChoice, Service, Reservation
 from datetime import timedelta
 from django.core.exceptions import ValidationError
-from django.contrib.admin.sites import AdminSite
-from .admin import ReservationAdmin
-from .forms import ReservationForm
 from datetime import datetime
 
 class HairdresserSpecializationTestCase(TestCase):
@@ -46,6 +43,29 @@ class HairdresserSpecializationTestCase(TestCase):
         self.assertEqual(self.hairdresser3.specialization.count(), 2)
         self.assertTrue(self.hairdresser3.specialization.filter(specialization='F').exists())
         self.assertTrue(self.hairdresser3.specialization.filter(specialization='S').exists())
+
+class ServiceModelTests(TestCase):
+    
+    def create_service(self, name="Test Service", duration=timedelta(hours=1), cost=100.00):
+        return Service.objects.create(name=name, duration=duration, cost=cost)
+
+    def test_create_service(self):
+        service = self.create_service()
+        self.assertIsNotNone(service.pk)
+    
+    def test_service_str(self):
+        service = self.create_service(name="Custom Service")
+        self.assertEqual(str(service), "Custom Service")
+
+    def test_get_specializations(self):
+        service=self.create_service()
+        spec1 = SpecializationChoice.objects.create(specialization="M")
+        spec2 = SpecializationChoice.objects.create(specialization="F")
+        service.specializations.add(spec1, spec2)
+
+        specializations = service.get_specializations()
+        self.assertIn("M", specializations)
+        self.assertIn("F", specializations)
 
 class ReservationModelTests(TestCase):
 
