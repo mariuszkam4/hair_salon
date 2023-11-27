@@ -44,19 +44,34 @@ class HairdresserSpecializationTestCase(TestCase):
         self.assertTrue(self.hairdresser3.specialization.filter(specialization='F').exists())
         self.assertTrue(self.hairdresser3.specialization.filter(specialization='S').exists())
 
+    def test_hairdresser_has_spec_m(self):
+        # Sprawdzenie, czy fryzjer ma specjalzację "M"
+        self.assertTrue(self.hairdresser1.has_specialization("M"))
+
+    def test_hairdresser_does_not_have_spec_f(self):
+        # Sprawdzenie, czy fryzjer nie ma spejalizaic "F"
+        self.assertFalse(self.hairdresser1.has_specialization("F"))
+
+    def test_hairdresser_has_any_spec(self):
+        # Sprawdzenie, czy fryzjer ma jakąkolwiek specjalizację
+        self.assertTrue(self.hairdresser1.specialization.exists())
+        
 class ServiceModelTests(TestCase):
-    
+    # Tworzenie instancji usługi
     def create_service(self, name="Test Service", duration=timedelta(hours=1), cost=100.00):
         return Service.objects.create(name=name, duration=duration, cost=cost)
 
+    # Tworzenie nowej usługi
     def test_create_service(self):
         service = self.create_service()
         self.assertIsNotNone(service.pk)
     
+    # Sprawdzanie poprawności nazwy usługi
     def test_service_str(self):
         service = self.create_service(name="Custom Service")
         self.assertEqual(str(service), "Custom Service")
 
+    # Sprawdzanie poprawności przypisywania specjalności do usługi
     def test_get_specializations(self):
         service=self.create_service()
         spec1 = SpecializationChoice.objects.create(specialization="M")
@@ -148,3 +163,48 @@ class ReservationModelTests(TestCase):
         with self.assertRaises(ValidationError):
             reservation = self.create_reservation(end_time=(timezone.now() - timedelta(hours=2)).time())
             reservation.save()
+    
+    def test_reservation_with_boundary_end_time_same_as_start_time(self):
+        # Ustawienie end_time na tę samą godzinę co start_time
+        boundary_end_time = self.start_time
+        reservation = self.create_reservation(end_time=boundary_end_time)
+        reservation.save()
+        self.assertEqual(reservation.end_time, boundary_end_time)
+
+    def test_reservation_with_boundary_end_time_close_to_start_time(self):
+        # Ustawienie end_time kilka minut po start_time
+        boundary_end_time = (
+            timezone.make_aware(
+                datetime.combine(
+                    self.start_date, self.start_time
+                )
+            ) + timedelta(minutes=5)
+        ).time()
+        
+        reservation = self.create_reservation(end_time = boundary_end_time)
+        reservation.save()
+        self.assertEqual(reservation.end_time, boundary_end_time)
+
+    def test_reservation_with_valid_hairdresser_specialization(self):
+        # Próba zapisu danych z poprawnymi danymi wejściowymi
+        self.hairdresser.specialization.add(
+            SpecializationChoice.objects.get(specialization='M')
+        )
+        reservation = self.create_reservation()
+        try:
+            reservation.full_clean()
+            reservation.save()
+        except ValidationError:
+            self.fail("ValidationError raised unexpectedly!")
+    
+    def test_reservation_with_missing_service(self):
+        # Próba zapisu danych z brakującym polem service
+        reservation = self.create_reservation(service=None)
+        with self.assertRaises(ValidationError):
+            reservation.full_clean()
+
+    def test_reservation_with_missing_hairdresser(self):
+        # Próba zapisu danych z brakującym polem hairdresser
+        reservation = self.create_reservation(hairdresser=None)
+        with self.assertRaises(ValidationError):
+            reservation.full_clean()
