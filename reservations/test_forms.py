@@ -1,5 +1,5 @@
 from django.test import TestCase
-from .forms import ReservationForm, ServiceAdminForm
+from .forms import ReservationForm, ServiceAdminForm, HairdresserAdminForm
 from .models import Hairdresser, Service, SpecializationChoice, Reservation
 from datetime import timedelta, date, time
 
@@ -113,12 +113,12 @@ class ReservationFormTests(TestCase):
             self.fail("Formularz powinien być poprawny")
 
 class ServiceAdminFormTests(TestCase):
-    # Sprawdenie czy formluarz poprawnie tworzy nową usługę
     def setUp(self):
         self.spec1 = SpecializationChoice.objects.create(specialization="M")
         self.spec2 = SpecializationChoice.objects.create(specialization="F")
 
     def test_valid_data(self):
+    # Test walidacji danych przez formularz
         form = ServiceAdminForm(data={
             'name': "Test Service",
             'duration': timedelta(hours=1),
@@ -128,6 +128,7 @@ class ServiceAdminFormTests(TestCase):
         self.assertTrue(form.is_valid())
 
     def test_create_new_service(self):
+    # test tworzenia nowej usługi
         form = ServiceAdminForm(data={
             'name': "New Service",
             'duration': timedelta(hours=2),
@@ -143,6 +144,7 @@ class ServiceAdminFormTests(TestCase):
             self.fail("Formularz powinien być poprawny.")
 
     def test_update_existing_service(self):
+    # test uaktualniania istniejącej już usługi
         service = Service.objects.create(
             name = "Usługa istniejąca",
             duration = timedelta (hours=1),
@@ -168,9 +170,45 @@ class ServiceAdminFormTests(TestCase):
             self.fail("Formularz powinien być poprawny")
 
     def test_missing_required_fields(self):
+    # test obłsugi błędów związanych z brakiem danych w formularzu
         form = ServiceAdminForm(data={})
         self.assertFalse(form.is_valid())
         self.assertIn('name', form.errors)
         self.assertIn('duration', form.errors)
         self.assertIn('cost', form.errors)
 
+class HairdresserAdminFormTests(TestCase):
+    def setUp(self):
+        self.spec1 = SpecializationChoice.objects.create(specialization="M")
+        self.spec2 = SpecializationChoice.objects.create(specialization="F")
+    
+    def test_create_new_hairdresser(self):
+        form = HairdresserAdminForm(data={
+            'name': "Nowy Fryzjer",
+            'specialization': [self.spec1.pk, self.spec2.pk]
+        })
+        self.assertTrue(form.is_valid(), "Formularz powinien być poprawny")
+        hairdresser = form.save()
+        self.assertIsNotNone(hairdresser.pk)
+        self.assertEqual(hairdresser.name, "Nowy Fryzjer")
+        self.assertIn(self.spec1, hairdresser.specialization.all())
+        self.assertIn(self.spec2, hairdresser.specialization.all())
+        
+    def test_update_existing_hairdresser(self):
+        hairdresser = Hairdresser.objects.create(name="Stary Fryzjer")
+        hairdresser.specialization.add(self.spec1)
+
+        form = HairdresserAdminForm(instance=hairdresser, data={
+            'name': "Zaktualizowany Fryzjer",
+            'specialization': [self.spec2.pk]
+        })
+        self.assertTrue(form.is_valid(), "Formularz powinien być poprawny")
+        updated_hairdresser = form.save()
+        self.assertEqual(updated_hairdresser.name, "Zaktualizowany Fryzjer")
+        self.assertIn(self.spec2, updated_hairdresser.specialization.all())
+        self.assertNotIn(self.spec1, updated_hairdresser.specialization.all())
+        
+    def test_missing_required_fields(self):
+        form = HairdresserAdminForm(data={})
+        self.assertFalse(form.is_valid())
+        self.assertIn('name', form.errors)
