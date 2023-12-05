@@ -97,7 +97,7 @@ class ServiceAdminForm(forms.ModelForm):
         return instance
 
 class HairdresserAdminForm(forms.ModelForm):
-    specializations = forms.ModelMultipleChoiceField(
+    specialization = forms.ModelMultipleChoiceField(
         queryset=SpecializationChoice.objects.all(),
         widget=FilteredSelectMultiple('Specializations', is_stacked=False),
         required=False,
@@ -110,13 +110,15 @@ class HairdresserAdminForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super(HairdresserAdminForm, self).__init__(*args, **kwargs)
         if self.instance and self.instance.pk:
-            self.fields['specializations'].initial = self.instance.specialization.all()
+            # Ustawienie initial na wartość z instancji modelu
+            self.fields['specialization'].initial = self.instance.specialization.all()
     
     def save(self, commit=True):
         hairdresser = super(HairdresserAdminForm, self).save(commit=False)
         if commit:
             hairdresser.save()
         if hairdresser.pk:
-            hairdresser.specialization.set(self.cleaned_data['specializations'])
+            # Ustawienie specjalizacji na podstawie danych z formularza
+            hairdresser.specialization.set(self.cleaned_data['specialization'])
             self.save_m2m()
         return hairdresser
